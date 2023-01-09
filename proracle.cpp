@@ -1,6 +1,7 @@
 //include header files required in this project
 #include "headers.h"
 #include <unordered_map>
+#include <fstream>
 using namespace std;
 
 class Ranger {
@@ -35,17 +36,17 @@ void print_all_rangers() {
         cout << "Ranger " << rangers[i].id << ": " << rangers[i].name << endl;
         cout << "Seasons: ";
         for (int j = 0; j < rangers[i].seasons.size(); j++) {
-            cout << rangers[i].seasons[j] << " ";
+            cout << rangers[i].seasons[j] << ", ";
         }
         cout << endl;
         cout << "Colors: ";
         for (int j = 0; j < rangers[i].colors.size(); j++) {
-            cout << rangers[i].colors[j] << " ";
+            cout << rangers[i].colors[j] << ", ";
         }
         cout << endl;
         cout << "Allies: ";
         for (unordered_map<int, string>::iterator it = rangers[i].allies.begin(); it != rangers[i].allies.end(); ++it) {
-            cout << it->first << " "<< it->second << " ";
+            cout << it->first << ":"<< it->second << " ";
         }
         cout << endl;
     }
@@ -79,9 +80,6 @@ void add_Ranger(string name, string season, string color) {
                 rangers[i].seasons.push_back(season);
                 rangers[i].colors.push_back(color);
             }
-            else {
-                cout<<"RIP"<<endl;
-            }
         }
     }
     cout<<"Ranger "<<id<<" added"<<endl;
@@ -105,23 +103,24 @@ void add_edge(int id1, int id2, string season_name) {
 //store graph in file
 void store_graph(string filename) {
     ofstream fout(filename);
+    fout.seekp(0, ios::beg);
     for(int i = 0; i < rangers.size(); i++) {
         fout << rangers[i].id << " " << rangers[i].name << " ";
-        cout<<"Writing in process";
         for(int j = 0; j < rangers[i].seasons.size(); j++) {
             fout << rangers[i].seasons[j] << ",";
         }
-        fout << " ";
+        fout << ";";
         for(int j = 0; j < rangers[i].seasons.size(); j++) {
             fout << rangers[i].colors[j] << ",";
         }
-        fout << " ";
+        fout << ";";
         //write allies to file
         for(unordered_map<int, string>::iterator it = rangers[i].allies.begin(); it != rangers[i].allies.end(); it++) {
-            fout << it->first << " " << it->second << " ";
+            fout << it->first << ":" << it->second << ", ";
         }
         fout << endl;
     }
+    cout<<"Writing Successful"<<endl;
     fout.close();
 }
 
@@ -147,8 +146,8 @@ vector<Ranger> get_graph(string filename) {
         string id, name, seasons, colors, allies;
         getline(ss, id, ' ');
         getline(ss, name, ' ');
-        getline(ss, seasons, ' ');
-        getline(ss, colors, ' ');
+        getline(ss, seasons, ';');
+        getline(ss, colors, ';');
         getline(ss, allies);
         vector<string> season = split(seasons, ',');
         vector<string> color = split(colors, ',');
@@ -164,71 +163,138 @@ vector<Ranger> get_graph(string filename) {
         }
         Ranger new_ranger(stoi(id), name, season, color, umap);
         rangers.push_back(new_ranger);
-        cout<<"Reading in process";
     }
+    cout<<"Reading Successful"<<endl;
     fin.close();
     return rangers;
 }
 
-//find shortest path in graph using BFS and return the path with edges
-vector<string> find_path(string name1, string name2) {
-    int id1 = find_id(name1);
-    int id2 = find_id(name2);
-    if (id1 == -1 || id2 == -1) {
-        return vector<string>(0, "No path found");
+//find shortest path in graph using BFS
+vector<int> find_path(string n1, string n2) {
+    int start = find_id(n1);
+    int end = find_id(n2);
+    if (start == -1 || end == -1) {
+        cout<<"Ranger not found"<<endl;
+        return vector<int>();
     }
-    vector<string> path;
-    vector<int> visited;
+    vector<int> parent(rangers.size(), -1);
+    vector<int> distance(rangers.size(), INT_MAX);
     queue<int> q;
-    q.push(id1);
-    visited.push_back(id1);
+    q.push(start);
+    distance[start] = 0;
     while (!q.empty()) {
-        int id = q.front();
+        int u = q.front();
         q.pop();
-        if (id == id2) {
-            break;
-        }
-        for (unordered_map<int, string>::iterator it = rangers[id].allies.begin(); it != rangers[id].allies.end(); it++) {
-            if (find(visited.begin(), visited.end(), it->first) == visited.end()) {
+        for (unordered_map<int, string>::iterator it = rangers[u].allies.begin(); it != rangers[u].allies.end(); ++it) {
+            if (distance[it->first] == INT_MAX) {
+                distance[it->first] = distance[u] + 1;
+                parent[it->first] = u;
                 q.push(it->first);
-                visited.push_back(it->first);
             }
         }
     }
-    for (int i = 0; i < visited.size(); i++) {
-        if (visited[i] == id2) {
-            path.push_back(to_string(visited[i]));
-            while (visited[i] != id1) {
-                for (unordered_map<int, string>::iterator it = rangers[visited[i]].allies.begin(); it != rangers[visited[i]].allies.end(); it++) {
-                    if (it->first == id1) {
-                        path.push_back(it->second);
-                        break;
-                    }
-                }
-                i--;
-            }
-            reverse(path.begin(), path.end());
-            return path;
-        }
+    vector<int> path;
+    int u = end;
+    while (u != -1) {
+        path.push_back(u);
+        u = parent[u];
     }
+    reverse(path.begin(), path.end());
     return path;
 }
+// vector<int> find_path(string n1, string n2) {
+//     int start = find_id(n1);
+//     int end = find_id(n2);
+//     if (start == -1 || end == -1) {
+//         cout<<"Ranger not found"<<endl;
+//         return vector<int>();
+//     }
+//     vector<int> path;
+//     vector<int> visited;
+//     queue<int> q;
+//     q.push(start);
+//     visited.push_back(start);
+//     while (!q.empty()) {
+//         int current = q.front();
+//         q.pop();
+//         if (current == end) {
+//             path.push_back(current);
+//             break;
+//         }
+//         for (unordered_map<int, string>::iterator it = rangers[current].allies.begin(); it != rangers[current].allies.end(); ++it) {
+//             if (find(visited.begin(), visited.end(), it->first) == visited.end()) {
+//                 q.push(it->first);
+//                 visited.push_back(it->first);
+//             }
+//         }
+//     }
+//     return path;
+// }
+// vector<string> find_path(string name1, string name2) {
+//     int id1 = find_id(name1);
+//     int id2 = find_id(name2);
+//     if (id1 == -1 || id2 == -1) {
+//         return vector<string>(0, "No path found");
+//     }
+//     vector<string> path;
+//     vector<int> visited;
+//     queue<int> q;
+//     q.push(id1);
+//     visited.push_back(id1);
+//     while (!q.empty()) {
+//         int id = q.front();
+//         q.pop();
+//         if (id == id2) {
+//             break;
+//         }
+//         for (unordered_map<int, string>::iterator it = rangers[id].allies.begin(); it != rangers[id].allies.end(); it++) {
+//             if (find(visited.begin(), visited.end(), it->first) == visited.end()) {
+//                 q.push(it->first);
+//                 visited.push_back(it->first);
+//             }
+//         }
+//     }
+//     for (int i = 0; i < visited.size(); i++) {
+//         if (visited[i] == id2) {
+//             path.push_back(to_string(visited[i]));
+//             while (visited[i] != id1) {
+//                 for (unordered_map<int, string>::iterator it = rangers[visited[i]].allies.begin(); it != rangers[visited[i]].allies.end(); it++) {
+//                     if (it->first == id1) {
+//                         path.push_back(it->second);
+//                         break;
+//                     }
+//                 }
+//                 i--;
+//             }
+//             reverse(path.begin(), path.end());
+//             return path;
+//         }
+//     }
+//     return path;
+// }
 
+//find name by id
+string find_name(int id) {
+    for (int i = 0; i < rangers.size(); i++) {
+        if (rangers[i].id == id) {
+            return rangers[i].name;
+        }
+    }
+    return "";
+}
 
 //Find relation between two rangers
 void oracle_of_rangers(string name1, string name2) {
-    vector<string> path = find_path(name1, name2);
+    vector<int> path = find_path(name1, name2);
     if (path.size() == 0) {
         cout<< name1 << " and " << name2 <<" are from completely different timelines/universes"<<endl;
         return;
     }
-    if (path[0] == "No path found") {
-        cout << "Ranger does not exist." << endl;
-    }
     else {
-        for (int i = 0; i < path.size(); i++) {
-            cout << path[i] << " ";
+        for (int i = 0; i < path.size()-1; i++) {
+            cout << find_name(path[i]) << "->";
         }
+        cout << find_name(path[path.size()-1]) << endl;
     }
 }
 
@@ -364,6 +430,7 @@ void menu() {
     cout<<"7. Print all the seasons"<<endl;
     /*cout<<"8. Print all rangers in a particular season"<<endl;*/
     cout<<"8. Exit"<<endl;
+    cout<<">>> ";
     cin>>choice;
     switch (choice) {
         case 1: opt1();
